@@ -1,0 +1,819 @@
+
+\title{W203 Lab 2 Comparing Means}
+\author{
+        Samuel Gomez\\
+        Harvi Singh\\
+        Demian Rivera \\
+        School of Information\\
+        University of California, Berkeley
+}
+\date{\today}
+
+\documentclass[12pt]{article}
+\usepackage{graphics,graphicx,float}
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+<<include=FALSE,comment=NA>>=
+
+library(knitr)
+knitr::opts_chunk$set(fig.pos = "!H")
+opts_chunk$set(
+concordance=TRUE
+)
+@
+<<include=FALSE>>=
+setwd("/Users/samueljohngomez/google drive/w203_statistics_for_data_science/lab_02")
+getwd()
+A = read.csv("anes_pilot_2018.csv")
+Ind <- subset(A,pid7x==3|pid7x==4|pid7x==5)
+Ind1<-Ind[!(Ind$russia16 <1),]
+@
+
+
+\maketitle
+\section{The Data}
+The American National Election Studies (ANES) conducts surveys of voters in the United States. While its flagship survey occurs every four years at the time of each presidential election, ANES also conducts pilot studies midway between these elections. 
+
+\paragraph{On iid:}
+The survey states that the respondents were selected from the YouGov panel by sample matching. The YouGov panel consists of a large and diverse set of over a million respondents who have volunteered to complete surveys online and who regularly receive invitations to do so. Matching is intended to make the individuals who complete the survey represent the population on the variables used for matching. Respondents were matched to U.S. citizens in the 2016 American Community Survey (ACS) sample by gender, age, race, and education.  Since this dataset is from opt-in panels (“non-probability samples”) the samples are not independent in the true sense.   But for the purposes of this evaluation, we will assume that the sample matching technique helps mirror the distribution of the sample to that of the US population and therefore assume i.i.d.
+
+\paragraph{On Weights:}
+To partially account for differences between the YouGov panel and the U.S. Population, ANES assigns a survey weight to each observation. This weight estimates the degree to which a citizen with certain observed characteristics is over- or under-represented in the sample. Our intention for the purpose of this paper is not to use the weights until we have a better understanding of its use and application.
+
+\paragraph{On Honestly:}
+ANES also asks surveyed wheather they filled the survey out honestly. 2112 out of the 2500 surveyed responded that they had "Always" been honest throughtout the survey. Assuming that our population has honest and dishonest individuals, removing respondents that were honest less than 100\% of the time would feed into an erroneous analysis. We have therefore kept all respondents in our dataset.  
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|l|l|}
+    \hline
+        Frequency & Numeric & Label \\ \hline
+        37 & 1 & Never \\ \hline
+        46 & 2 & Some of the time \\ \hline
+        90 & 3 & About half the time \\ \hline
+        215 & 4 & Most of the time \\ \hline
+        2112 & 5 & Always \\ \hline
+    \end{tabular}
+    \caption{How often would you say you answered the questions honestly on this survey?}
+\end{table}
+
+\section{Questions to Address}
+\paragraph{}
+The remainder of this paper answers five questions:
+\begin{enumerate}
+\item Do US voters have more respect for the police or for journalists?
+\item Are Republican voters older or younger than Democratic voters?
+\item Do a majority of independent voters believe that the federal investigations of Russian election interference are baseless?
+\item Was anger or fear more effective at driving increases in voter turnout from 2016 to 2018?
+\item Do non-Republican voters who identify closer to the Republican party than the Democratic party tend to vote across party lines?
+\end{enumerate}
+
+\subsection{Do US voters have more respect for the police or for journalists?}
+\paragraph{Introduce your topic briefly. (5 points)}
+Explain how your variables are operationalized. Comment on any gaps that you can identify between your operational definitions and the concepts you are trying to study.
+
+\paragraph{}
+The question posed is an important and polarizing one. Both the police and journalists serve the people in their own way and therefore deserve respect. But considering how often Americans start the day with stories around police brutality and fake-news, it would be intersting to gauge how american voters rate the police compared to journalists. 
+
+The survey report provided does not include a variable that directly measures respect for police or journalists. The 2 most relevant survey variables that can be used to gauge "respect" are \textbf{ftpolice} and \textbf{ftjournal}. Survey questions associated with these variables ask the respondents to rate the police and journalists respectively. Respect is expected to be one of the many factors that a respondent would consider when rating the police or jounalists, but there could be several other and potentially more important factors responsible for the rating. Therefore, based on the dataset provided, the question as posed cannot be accurately answered. We will therefore be evaluating a slightly modified question \textbf{"Do US voters have a better opinion of the police or the journalists?"}.
+
+For this modified question, we will be using \textbf{ftpolice} and \textbf{ftjournal} variables to complete our evaluation. The responses are on a thermal scale from 0 to 100 with 101 unique values possible [0,100]. Ratings between 51 degrees and 100 degrees mean that the respondant rates the subject favorably. Ratings between 0 degrees and 49 degrees mean that the respondent does not feel favorable toward the subject. A rating of 50 means a nuetral rating. In addition to these scores, a score of -1, -4 and -7 mean a legitimate skip, error and no answer respectively.
+
+
+\paragraph{Perform an exploratory data analysis (EDA) of the relevant variables. (5 points)}
+This should include a treatment of non-response and other special codes, basic sanity checks, and a justification for any values that are removed. Use visual tools to assess the relationship among your variables and comment on any features you find.
+
+\paragraph{}
+Below, we check some of the characteristics of the datasets that we would be using for this evaluation. An initial check of the data shows that while all the datapoints for \textbf{ftpolice} variable are valid, \textbf{ftjounal} has some entries that are 'non-responses'. Since we are interested in conducting a comparison between the 2 variables, we create 2 new variables \textbf{pol} and \textbf{jrn} respectively that do not include these 'non-responses' in our evaluation. We now analyze the 2498 pairs of true responses only.
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+
+cat("Summary for A$ftpolice variable")
+str(A$ftpolice)
+summary(A$ftpolice)
+
+cat("Summary for A$ftjournal variable")
+str(A$ftjournal)
+summary(A$ftjournal)
+
+pol = A$ftpolice[A$ftjournal>=0]
+jrn = A$ftjournal[A$ftjournal>=0]
+
+cat("Summary for jrn variable")
+summary(jrn)
+str(jrn)
+
+cat("Summary for pol variable")
+summary(pol)
+str(pol)
+
+@
+\caption{Initial Summary of Sentiments Towards Police and Journalists}
+\end{table}
+
+Figures 1.1 and 1.2 below show the histograms for the ratings for the police and journalists respectively. Note that all the values are now in the [0,100] range. It is also worth noticing that both the distributions are non normal and tend to have peaks closer to the extremes. As discussed in the introduction, this was somewhat expected with the plarizing nature of the topic. Between the two, police ratings are concentrated more to the positives, while ratings for the journalists have 3 identifiable peaks - 2 at the extremes and one at the center point.
+
+Fig 1.3 presents the 2 distributions side-by-side in a boxplot comparison. For this sample, the median police ratings are better than those for the journalist. Having said that, it is critical to note that this statement is true only for this sample and may or may not be extendable to the entire population. Therefore, as a next step, we carry out a hypothesis test to check if we can indeed owe this difference in the distributions to an underlying difference in the population, or is a difference this extreme expected in a random sample, i.e. the survey.
+
+\begin{figure}[H]
+\centering
+\scalebox{.70}{
+<<echo=FALSE,comment=NA>>=
+layout(matrix(c(1,2,3,3),2,2))
+
+hist(pol,
+     breaks=20,
+     right=FALSE,
+     col='lightblue',
+     border='darkgrey',
+     xlim=c(-20,120),
+     main="FIG. 1.1 \n Distribution for police ratings", 
+     xlab="Rating on a 0-100 scale")
+
+hist(jrn,
+     breaks=20,
+     right=FALSE,
+     col='pink',
+     border='darkgrey',
+     main="FIG. 1.2 \n Distribution for journalist ratings",
+     xlim=c(-20,120),
+     xlab="Rating on a 0-100 scale")
+
+boxplot(pol,jrn, 
+        ylab= "Unfavorable to Favorable",
+        main="FIG. 1.3 \n Police vs Journalists Rating",
+        col=c('lightblue','pink'),
+        names=c("Police","Journalists"))
+@
+}
+\caption{Police and Jornalists rating distribution and box-plot comparison}
+\end{figure}
+
+\paragraph{Based on your EDA, select an appropriate hypothesis test. (5 points)}
+Explain why your test is the most appropriate choice. List and evaluate all assumptions for your test.
+\paragraph{}
+By using a temperature scale instead of a simple ranking scheme (e.g. 0-7 for some other variables), it appears that the survey intended to transform an ordinal scale into an interval scale to allow for the degree of difference between items. But for this evaluation, we'll treat the ftpolice and ftjournal variables as ordinal since the mathematical difference in 2 readings does not neccessarily represent the effective degree of difference exactly. For example, the difference between a reading of 0 and 25 does not neccessarily equal the difference between readings of 75 and 100. Therefore, a paired Wilcoxon signed-rank test will be used to evaluate our hypothesis against the null hypothesis. Also, since there is no logical reason to assume that median ratings for the police or journalists cannot be higher than the other, we will conduct a 2 tailed test at 95\% confidence level. In other words, just because this one sample happens to show a higher median rating for the police, it would not be a statistically logical assumption to assume that median ratings for the police cannot be lower for the population.
+
+Note that we could have performed a simple sign test instead, but that test would give us a lower power than the Wilcoxon signed-rank test because we would not be using the infromation available about how far the sample values are from the median (no relative ranking of the pairs). Therefore we decided to proceed with the paired Wilcoxon signed-rank test.
+
+
+\paragraph{}
+\parbox{\textwidth}{\emph{The Null Hypothesis is $H_0$: Population median difference for police and \\ journalist ratings is 0.\\
+The Alternate Hypothesis is $H_1$: Population median difference for police \\ and journalist ratings $\neq$ 0.}}
+
+\paragraph{}
+Since the test compares the paired data and removes all the data points that have a 0 difference thereby losing some data, it is important to note that we will still have 2417 data point pairs remaining for the test, with 81 points not used since the respondants had equal ratings for the police and the jounalists. Of importance is the fact that our sample size for the evalution is 2417 >> 30 and therefore the normal approximation in the Wilcoxon signed-rank test to compute the p-value should hold valid by the application of CLT.
+
+<<echo=FALSE,comment=NA>>=
+cat("Summary for logic test where pol and jrn are equal")
+summary(pol==jrn)
+
+@
+
+
+\paragraph{Conduct your test. (5 points)}
+Explain (1) the statistical significance of your result, and (2) the practical significance of your result. Make sure you relate your findings to the original research question.
+\begin{figure}[H]
+<<echo=FALSE,comment=NA>>=
+wilcox.test(pol,jrn,
+             alternative='two.sided',
+             paired=TRUE,
+             conf.level = 0.95,
+             conf.int = TRUE,
+             correct = FALSE)       
+@
+\caption{Police vs Journalists test statistic}
+\end{figure}
+
+\begin{figure}[H]
+<<echo=FALSE,comment=NA>>=
+p = 2.2e-16
+N = 2417
+z = qnorm(1-p/2)
+r = round(z/sqrt(N),3)
+cat("Effect Size, r=",r)  
+@
+\caption{Rosenthal test for effect size}
+\end{figure}
+
+\paragraph{}
+The null hypothesis is that the ratings for the police and jounalists from the respondents are identical populations. To test the hypothesis, we apply the wilcox.test function to compare the paired samples. For the paired test, we set the "paired" argument as TRUE and set a 95\% confidence level to calculate the p-value. Since we get a very small p-value of < 2.2e-16, less than the .05 significance level, we reject the null hypothesis. We also calculated the r statistic to gauge the effect size and a result of 0.167 (between 0.1 and 0.3) shows a small practical significance of this result.
+
+Based on these results, we can support the alternate hypothesis that the 2 distributions are not identical. On the basis of the confidence interval being positive, we can also conclude that the US voters rate the police higher than the journalists. We can say further that if we were to redo the survey, we can expect 95\% of them to contain the difference in the median ratings for the groups in the 10 and 14 point range. Based on the effect size we can conclude that though the police is rated higher than the jounalists, the difference in the median ratings is small in comparison to the variability in the ratings.   
+
+\subsection{Are Republican voters older or younger than Democratic voters?}
+\paragraph{Introduce your topic briefly. (5 points)}
+Explain how your variables are operationalized. Comment on any gaps that you can identify between your operational definitions and the concepts you are trying to study.
+
+\paragraph{}
+The posed question constitutes of 2 variables that need to be defined prior to progressing with the statistical evaluation. First is the voter age and second is party alliance. For the purposes of this evaluation, we'll define these as follows:
+
+\begin{itemize}
+\item \textbf{Voter age:} We define this as the difference between the year of the survey (2018) and value of variable 'birthyr', which represents the birth year of the people surveyed. Note that since the exact date of birth is not reported in the survey (month and date) and since the survey was conducted in Dec 2018, we will be underestimating the exact age of a majority of the respondents. For example, 2 poeple that were born in Jan and Dec respectively of the same year will both be the same age, even though the first person is older than 2nd. This is important since we will detemine people being older or younger based on their voter age, rather than the exact date of birth. Assuming that the the distribution of birthdays over the 12 months of the year is relatively similar between democratic and republican voters, this would effectively lower the voter age averages for the 2 groups by the same amount, and therefore not expected to affect the difference in the mean ages.
+\item \textbf{Party alliance:} The survey reports the party ID summary of the respondents in variable pid7x as follows:
+\end{itemize}
+
+This should include a treatment of non-response and other special codes, basic sanity checks, and a justification for any values that are removed. Use visual tools to assess the relationship among your variables and comment on any features you find.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|l|l|}
+    \hline
+        Frequency & Numeric & Survey Label \\ \hline
+        98 & -7 & no answer \\ \hline
+        581 & 1 & Strong Dem \\ \hline
+        276 & 2 & Not very strong Dem \\ \hline
+        279 & 3 & Ind, closer to Dem \\ \hline
+        417 & 4 & Independent \\ \hline
+        241 & 5 & Ind, closer to Rep \\ \hline
+        200 & 6 & Not very strong Rep \\ \hline
+        408 & 7 & Strong Rep \\ \hline
+    \end{tabular}
+\end{table}
+
+For the purposes of this question, a \textbf{republican voter} would be a person responding a \textbf{6 or 7} on the pid7x variable. Similarly, a \textbf{democratic voter} would a person responding a \textbf{1 or 2} for the \textbf{pid7x}. Although people responding a 3 or 5 could potentially be included, they have been labeled independents in the survey and therefore will not be. With this, we have the following summary for the \textbf{party alliance} variable:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|l|l|l|}
+    \hline
+        Frequency & Numeric & Survey Label & *Party Alliance* \\ \hline
+        98 & -7 & no answer & N/A  \\ \hline
+        581 & 1 & Strong Dem & Democratic  \\ \hline
+        276 & 2 & Not very strong Dem & Democratic  \\ \hline
+        279 & 3 & Ind, closer to Dem & Independent  \\ \hline
+        417 & 4 & Independent & Independent  \\ \hline
+        241 & 5 & Ind, closer to Rep & Independent  \\ \hline
+        200 & 6 & Not very strong Rep & Republican  \\ \hline
+        408 & 7 & Strong Rep & Republican  \\ \hline
+    \end{tabular}
+\end{table}
+
+\paragraph{Perform an exploratory data analysis (EDA) of the relevant variables. (5 points)}
+This should include a treatment of non-response and other special codes, basic sanity checks, and a justification for any values that are removed.  Use visual tools to assess the relationship among your variables and comment on any features you find.
+
+\paragraph{}
+The two survey datasets (samples) that we are interested in for this evaluation are the ages for democratic and republican voters respectively. based on the definition listed above, we calculate the values for r-age and d-age variables below. 
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+# d and r represent the birthyears for democratic and republican voters respectively.
+d = A$birthyr[(A$pid7x==1 | A$pid7x==2)]
+r = A$birthyr[(A$pid7x==6 | A$pid7x==7)]
+
+#Calculating the age variable from A$birthyr
+r_age = 2018-r
+d_age = 2018-d
+
+cat("Summary for r_age variable:")
+summary(r_age)
+str(r_age)
+
+cat("Summary for d_age variable:")
+summary(d_age)
+str(d_age)
+@
+\caption{Summary for Replublican and Democrat ages}
+\end{table}
+
+\paragraph{}
+A quick sanity check of the data confirms that we don't have any suspect data in these data sets - the min age for voters is 18 and max age is consistent with the typical life expectancy of humans. Furthermore, the pid7x variable has no missing values. Figures 2.1 and 2.2 show the histograms for the age variable for the 2 groups. The 2 groups have very similar distributions with peaks close to 60 years. Since both these distributions are skewed, we use the skewness method to calculate absolute skewness values of 0.2 and 0.1 respectively. We will use these values in the next section to determine the appropiate statistical test to check our hypothesis. A skewness value of over 1 is considered severe. In our case, we can call the distributions mildly skew.
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+#Checking skewness of these samples
+library('moments')
+cat("skewness of r_age: ")
+skewness(r_age)
+
+cat("skewness of d_age: ")
+skewness(d_age)
+@
+\end{table}
+
+Fig 1.3 presents the 2 distributions side-by-side in a boxplot comparison. For this sample, the average age for republican voters is higher than democrat counterparts. Similar to the first question, it is critical to note that this statement is true only for this sample and may or may not be extendable to the entire population. Therefore, as a next step, we carry out a hypothesis test to check if we can indeed owe this difference in the distributions to an underlying difference in the population, or is a difference this extreme expected in a random sample from the population, i.e. the survey.
+
+\begin{figure}[H]
+\centering
+\scalebox{.70}{
+<<echo=FALSE, comment=NA>>=
+#grid
+layout(matrix(c(1,2,3,3),2,2))
+
+#plot1
+hist(r_age,
+     breaks=20,
+     col='lightblue',
+     border='darkgrey',
+     xlim = c(0,100), 
+     main="FIG 2.1. \n Distribution: age of republican voters", 
+     xlab="Age(in years)")
+
+#plot2
+hist(d_age,
+     breaks=20,
+     col='pink',
+     border='darkgrey',
+     xlim = c(0,100), 
+     main="FIG 2.2. \n Distribution: age of democrat voters", 
+     xlab="Age(in years)")
+
+#plot3
+boxplot(r_age,d_age, 
+        ylab= "Age (in Years)",
+        main="Fig 2.3 \n BoxPlot : Age by Party ID",
+        col=c('lightblue','pink'),
+        names=c("Republican","Democrat"))
+@
+}
+\caption{Rebublican and Democrat distributions and box-plot}
+\end{figure}
+
+\paragraph{Based on your EDA, select an appropriate hypothesis test. (5 points)}
+Explain why your test is the most appropriate choice. List and evaluate all assumptions for your test.
+
+\paragraph{}
+\parbox{\textwidth}{\emph{The Null Hypothesis is $H_0$: Difference in the average age of republican \\ voters and  democrat voters is 0.\\ The Alternate Hypothesis is $H_1$: Average age of a republican voter is \\ greater than the average age of a democrat voter.}}
+
+\paragraph{Conduct your test. (5 points)}
+Explain (1) the statistical significance of your result, and (2) the practical significance of your result. Make sure you relate your findings to the original research question.
+
+\paragraph{}
+A t-test has been chosen instead of a z-test since the probability distribution of the 2 samples (r-age and d-age) are not perfectly normal, as shown in FIG 2.1 and FIG 2.2 respectively. Since r-age and d-age have unknown distributions that are not normal, we can rely on CLT to approximate the sampling distribution of their means, provided that the conditions of CLT are satisfied, i.e. r-age and d-age are credibly i.i.d and the distributions are not too skewed for the number of observations.
+
+\begin{itemize}
+\item Using skewness method in the moments package, the absolute skewness values for r-age and d-age are 0.2 and 0.1. Since these are $<< 1$, the distributions are not considered substantially skewed. Therefore the typical rule of thumb of using >30 samples would suffice for CLT. Note that we have 608 and 857 data points in r-age and d-age respectively.
+\item On the i.i.d front, the survey states that the respondents were selected from the YouGov panel by sample matching. The YouGov panel consists of a large and diverse set of over a million respondents who have volunteered to complete surveys online and who regularly receive invitations to do so. Matching is intended to make the individuals who complete the survey represent the population on the variables used for matching. Respondents were matched to U.S. citizens in the 2016 American Community Survey (ACS) sample by gender, age, race, and education.
+\end{itemize}
+
+Since this dataset is from opt-in panels (“non-probability samples”) the samples are not independent in the true sense.   But for the purposes of this evaluation, we will assume that the sample matching technique helps mirror the distribution of the sample to that of the US population and therefore assume i.i.d. 
+
+A 2-tailed test is appropiate since there is no logical reason to assume that a republican voter can only be older (or younger) than a randomly selected voter from the democrat voter population. Note here that based on EDA, the alternate hypothesis has been set as the average age of a republican voter being greater than the average age of a democrat voter, but from the standpoint of choosing a one-tailed vs a two tailed test, the opposite could very well be true.
+A 95\% confidence interval has been chosen for this analysis.
+
+\begin{figure}[H]
+<<echo=FALSE, comment=NA>>=
+#Conducting the t-test
+
+t.test(r_age, d_age,
+       alternative = "two.sided",
+       mu = 0, 
+       paired = FALSE, 
+       var.equal = FALSE,
+       conf.level = 0.95)
+
+#Checking the cohen's d to understand the practical significance
+library(effsize)
+cohen.d(r_age, d_age, 
+        paired=FALSE)
+@
+\end{figure}
+
+\paragraph{}
+With a t-value of .003, we can reject the null hypothesis that the difference in means between republican and democratic voters is zero. Also, since the 95\% confidence interval is 0.9 to 4.4 (to the right of mean = 0), we can conclude that if we were to repeat this study, 95\% of these studies are expected to have the average age for a republican voter, 0.9 to 4.4 years greater than the average age of the democrat voter.
+To gauge the practicle significance of this result, we calculated the cohen's d associated with these 2 data samples, and the result was 0.16, which is very small (<0.2). The Cohen's d value can be interpreted as ratio of the difference in the two means, devided by the standard deviaiton. In other words, the difference in the means is expected to only be small compared to the variability in the age variable as a whole.
+From the standpoint of the original question, we tested the hypothesis that the mean age of the republican voters is greater than the mean age of democratic voters, with the conclusion that we can reject the null hypothesis. Our result was statistically significant but had low statistical significance. From a subjective standpoint, we can say with some confidence that the average republican voter tends to be older than the average democarat voter, but the difference is not very much. 
+
+\subsection{Do a majority of independent voters believe that the federal investigations of Russian election interference are baseless?}
+\paragraph{Introduce your topic briefly. (5 points)}
+Explain how your variables are operationalized. Comment on any gaps that you can identify between your operational definitions and the concepts you are trying to study.
+\paragraph{}
+The question is an interesting one. The Russian interference in the election is quite a polarizing subject and is very aligned to party affiliations (Democrat vs. Republican). What is more interesting is to better understand how Independent voters feel about the investigation and its validity.
+
+A concept we must first try to determine and define is how to properly distinguish independent voters from the sample provided. We plan to define Independent voters by using \textbf{pid7x}. It requires respondents to pick among 7 categories.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|l|l|l|}
+    \hline
+        Frequency & Numeric & Survey Label & *Party Alliance* \\ \hline
+        98 & -7 & no answer & N/A  \\ \hline
+        581 & 1 & Strong Dem & Democratic  \\ \hline
+        276 & 2 & Not very strong Dem & Democratic  \\ \hline
+        279 & 3 & Ind, closer to Dem & Independent  \\ \hline
+        417 & 4 & Independent & Independent  \\ \hline
+        241 & 5 & Ind, closer to Rep & Independent  \\ \hline
+        200 & 6 & Not very strong Rep & Republican  \\ \hline
+        408 & 7 & Strong Rep & Republican  \\ \hline
+    \end{tabular}
+\caption{Ideological breakdown of surveyed}
+\end{table}
+
+<<echo=FALSE>>=
+#Picking Independents as s subset
+Ind <- subset(A,pid7x==3|pid7x==4|pid7x==5)
+#Removing one reposndent with -7
+Ind1<-Ind[!(Ind$russia16 <1),]
+@
+
+Given that the question does not specify whether we are interested in a particular ideological leaning (either Republican or Democrat), we will define Independent voters as the sum of categories 3, 4, and 5. In summary, the definition of “Independent voter” within the bounds of answering the question would encompass (3) Independent closer to Democrat, (4) Independent, and (5) Independent closer to Republican.
+
+We don't quite have a straight forward survey question asking if voters believe the federal investigation of Russian election interference are baseless, some straight forward assumptions will be required. The voters surveyed who believe there was interference in the 2016 presidential election to try to help Donald Trump win would also agree with the investigation taking place, and vice versa, those who did not believe there was interference would believe the investigation was baseless. With this in mind, we will pivot our analysis primarily on the question below as it provides the most clarity and alignment with the subject of study and addresses the correct line of inquiry:
+\subparagraph{}
+\emph{\textbf{russia16}:  Do you think the Russian government probably interfered in the 2016 presidential election to try to help Donald Trump win, or do you think this probably did not happen?}
+
+\paragraph{}
+A necessary assumption here is that those who approve of the investigation would not believe the investigation is baseless. Concurrently, voters who note disapproval for the investigation might also believe it to be baseless.
+
+As stated, answering the beforementioned question would require operationalizing assumptions and by doing so could potentially leave a gap. The particularly seam would be people who believe Russia had meddled in the elections but might believe the investigation to be baseless for an unrelated reason. As a whole, we trust that the assumptions we have made in efforts are logical and straight forward and address the spirit of the question we are trying to address.
+
+\paragraph{Perform an exploratory data analysis (EDA) of the relevant variables. (5 points).}
+This should include a treatment of non-response and other special codes, basic sanity checks, and a justification for any values that are removed. Use visual tools to assess the relationship among your variables and comment on any features you find.
+
+\paragraph{}
+We first need to be able to discern Independent voters from the rest of the sample. \textbf{pid7x} provides us with a good start. As per Table 4, we find 417 respondents that identify themselves as independents with no particular leaning. In addition, we find 279 respondents who identify themselves as Independents with a Democrat leaning and another 241 Independents with Republican leaning. It is important to mention that 98 respondents declined to provide Democrat, Republican, or Independent political affiliation while answering this question. Without any additional information on those individuals we have decided to exclude those who declined to answer the question. With the assumptions stated and for the purposes of answering this question we assume that out of the 2500 survey respondents, a total of 937 are Independents.
+
+We have a well-defined Independent subset we can move forward with and analyze whether the majority believe that the federal investigation of Russian election interference is baseless.
+There are two choices available for \textbf{russia16}, those surveyed had to pick whether they though “Russia probably interfered” or “This probably this did not happen”. 
+
+\paragraph{}
+\begin{figure}[H]
+<<echo=FALSE, comment=NA>>=
+summary(Ind$russia16)
+@
+\caption{Russian interference data summary}
+\end{figure}
+
+There is a respondent that declined to answer the question, and is represented in the survey with a -7 (as per survey instructions). We found that the individual answered two related questions: \textbf{muellerinv:} Do you approve, disapprove, or neither approve nor disapprove of Robert Mueller’s investigation of Russian interference in the 2016 election? as Disapproved Extremely strongly, and \textbf{coord16:} Do you think Donald Trump’s 2016 campaign probably coordinated with the Russians, or do you think his campaign probably did not do this? As probably did not. This being said, regardless of how they might have answered the beforementioned two questions there is reasonable possibility that the individual disagrees with the investigation regardless of whether they believe the investigation to be baseless or not. In efforts to not taint the data we have decided to leave the individual out of the sample for the purposes of answering this question. 
+
+\paragraph{}
+\begin{figure}[H]
+<<echo=FALSE, comment=NA>>=
+summary(Ind1$russia16)
+@
+\caption{Russian interference data summary post non-respondent adjustment}
+\end{figure}
+
+For whether the surveyed think the Russian government probably interfered in the 2016 presidential election to try to help Donald Trump win, 437 out of the 937 Independents believe the interference probably did not happen, and therefore might think the investigations are baseless.
+
+\begin{figure}[H]
+\centering
+\scalebox{.5}{
+<<plot1, echo=FALSE, fig.align='center',fig.pos="!H">>=
+Ind1$fa <- ifelse(Ind1$russia16==1, "Prob Interfered","Prob did not happen")
+bb <- barplot(table(Ind1$fa),ylim=c(0,500), col='lightblue',border='darkgrey', main="Sentiment on Russian Interferance\n (Independent voters)")
+text(bb,table(Ind1$fa)-15,labels=table(Ind1$fa),cex=.8)
+@
+}
+\caption{Do you think the Russian government probably interfered in the 2016 presidential election to try to help Donald Trump win, or do you think this probably did not happen?}
+\end{figure}
+
+\paragraph{Based on your EDA, select an appropriate hypothesis test. (5 points)}
+Explain why your test is the most appropriate choice. List and evaluate all assumptions for your test.
+
+\paragraph{}
+\parbox{\textwidth}{\emph{The Null Hypothesis is $H_0:$ Independents are equally divided on the \\ issue and therefore has a mean of 1.5.\\
+The Alternate Hypothesis is $H_1:$ The majority of Independents voters believe the investigation is baseless.}}
+\paragraph{}
+
+We satisfy iid, sample size, and distribution requirements (based on CLT) in order to conduct a two-tailed t-test. This will give us a view into variability in respondents and get a better idea for where opinion lays with respect to the main question.  The null hypothesis is that the population is equally divided and therefore has a mean of 1.5, half way between [1] “Russia probably interfered” and [2] “this probably did not happen”. 
+
+\paragraph{Conduct your test. (5 points)}
+Explain (1) the statistical significance of your result, and (2) the practical significance of your result. Make sure you relate your findings to the original research question.
+
+\begin{figure}[H]
+<<echo=FALSE, comment=NA>>=
+t.test(Ind1$russia16, mu=1.5, alternative = "two.sided")
+@
+\caption{Independent voters for russia16 Two-sided T-test}
+\end{figure}
+
+\paragraph{}
+Running a statistical significance test (One Sample two-tailed t-test) for our null hypothesis we find a slightly negative t-test, which tell us the distribution is left leaning from our tested mean, a p-value of 0.042 with a 95\% Confidence Interval in between 1.4349 and 1.4989 and a sample mean of 1.4669. Based off the statistics measured by question \textbf{russia16}, and at a 0.05 significance, this allows us to barely reject the null hypothesis. That is, we reject the hypothesis that Independent voters are equally split on whether they believe the investigation by Robert Mueller is baseless. By focusing on our confidence interval we also notice that, in the long run, there is a 95\% chance the true population mean is in our confidence interval. That is, only 5\% chance the true population mean would be outside those bounds, adding to evidence that the that majority of independent voters might not believe that the federal investigations of Russian election interference are baseless might not be accurate . It is important to note that we might not reject the null hypothesis if the significance level was 0.01. 
+
+\subsection{Was anger or fear more effective at driving increases in voter turnout from 2016 to 2018?}
+\paragraph{Introduce your topic briefly. (5 points)}
+Explain how your variables are operationalized. Comment on any gaps that you can identify between your operational definitions and the concepts you are trying to study.
+\paragraph{}
+This topic deals with two powerful human emotions, fear and anger.  Evidence exists that fear can lead to anger, and that anger can lead to action.  Through this analysis, the Team Resonators will explore whether fear or anger drove more Americans to the polls in 2018 compared to 2016.  
+
+The \textbf{turnout18} and \textbf{turnout16} datasets provide the data to calculate the number of votes in 2018 and 2016.  The \textbf{turnout18} dataset includes five categories listed as the following: (1) Definitely voted in person on Nov. 6, (2) Definitely voted in person before Nov. 6, (3) Definitely voted by mail, (4) Definitely did not vote, and (5) Not completely sure.  For this analysis, categories one, two, and three define the number of voters in 2018.  As part of the survey, if the respondent selects category (5) Not Completely Sure, he is then asked, "If you had to guess, would you say that you probably did or did not vote?".  The result is controversial and is not used to calculate the total number of voters in 2018 and 2016. The \textbf{turnout16} dataset is slightly different than the \textbf{turnout18} dataset.  It contains three categories: (1) Definitely voted, (2) Definitely did not vote, and (3) Not completely sure.  Category one is used to define the number of voters in 2016.  
+
+ After summing the categories for each dataset, 1,842 respondents voted in 2018, and 1,841 respondents voted in 2016.  This indicates that more Americans voted in 2018.  However, in the context of the question, it is irrelevant since some voters who voted in 2016 did not vote in 2018.  Instead this analysis seeks to address more Americans voting in 2018 compared to 2016 due to emotional drive.  Respondents who voted in 2016 but did not vote in 2018 had no emotional drive to vote and are therefore ignored.  For this reason,  the analysis only considers respondents that voted in 2018.  Among that group, there are 5.5\% more respondents that voted in 2018 compared to 2016.   
+
+To address the emotional drive of fear vs. anger, the global emotion battery section from the 2018 ANES (American National Election Studies) Pilot Study survey will be examined. In this section, the respondents are prompted with the question, "Generally speaking, how do you feel about the way things are going in the country these days?  How <blank> do you feel?".  The <blank> is replaced with an emotional state, and the respondent is given a grind with several emotions and a selection of emotional intensity. Two of the emotions are anger \textbf{geangry} and fear \textbf{geafraid}.  The selection for each emotion ranges from one to five and is categorized as follows: (1) Not at all, (2) A little, (3) Somewhat, (4) Very, and (5) Extremely. This type of scale is called a Likert scale. It will play a significant role in choosing the appropriate statistical test, which will be discussed later.
+
+The emotional state of this analysis is most concerned with the responses to the following questions, "How angry do you feel?" and "How afraid do you feel?".  The respondent's selections are analyzed, and the emotion that is most intense is assumed to be the emotional driver for that individual.
+
+\paragraph{Perform an exploratory data analysis (EDA) of the relevant variables. (5 points)}
+This should include a treatment of non-response and other special codes, basic sanity checks, and a justification for any values that are removed. Use visual tools to assess the relationship among your variables and comment on any features you find.
+
+\paragraph{}
+The data exploration confirms all respondents provided valid answers to voting in 2018.  The majority of respondents voted in person on Nov. 6, 2018.  The median of \textbf{turnout18} is 2, which indicates that more respondents voted than did not vote.  The more most crucial takeaway is that all respondents are accounted for, and their responses are valid.  Summing categories one, two, and three reveals 1,842 out of 2,500 respondents voted in 2018--74% of all subjects are sure they voted.
+
+The next variable of importance is \textbf{turnout16}.  The data exploration shows that all respondents gave valid responses to voting in 2016.  The median is 1 and the mean is 1.306, which indicates the majority of respondents voted in 2016.  
+
+More data exploration reveals that two respondents and four respondents did not give valid responses to \textbf{geangry} and \textbf{geafraid}, respectively. The invalid responses are removed from the dataset.  Removing the invalid responses leaves 1,838 subjects to analyze--only four subjects were removed from the dataset.  Taking into account the number of respondents that gave valid answers, the impact of removing four is irrelevant.  Moreover, the invalid responses are considered erroneous and therefore removed.  One approach would be to examine the quartiles.  This would allow for a portion of the bottom responses to be withdrawn along with the same number of top responses.  However, this approach utilized.  
+
+Further exploration of \textbf{geangry} discloses a mean of 3.059 and a median of 3.  From Figure xx it is clearly seen that "Somewhat Angry" is the most common among respondents.  It also indicates that the emotion angry has skewness -.06.  Table xx displays the most common ranking "Somewhat angry" with 391 responses, "Very angry" with 379 responses, and "Extremely angry" with 380 responses.  The variable \textbf{geafraid} has a mean of 2.74, and a median of 3.  It also has a skewness of 0.2.  Figure xx reports that subjects selected "Somewhat afraid" the most.  Table xx displays "Somewhat afraid" with the most responses at 433, "A little afraid" with 473 responses, and "Not at all afraid" with 380 responses.
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+#print(paste("The length of the dataset is", length(A$turnout18)))
+#print("Unique variables inlcude: ")
+#print(unique(A$turnout18))
+summary(A$turnout18)
+df_votes18 = as.data.frame(table(A$turnout18))
+df_votes18$Var1=c("Definitely voted in person on Nov. 6", 
+                  "Definitely voted in person before Nov. 6", 
+                  "Definitely voted by mail",
+                  "Definitely did not vote",
+                  "Not Completely sure")
+colnames(df_votes18)[colnames(df_votes18) == "Var1"] <- "Did you vote in 2018?"
+df_votes18
+print(paste("Total number of votes in 2018 is: ", sum(df_votes18$Freq[1:3])))
+@
+\caption{2018 voter turnout breakout}
+\end{table}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+summary(A$turnout16)
+df_votes16 = as.data.frame(table(A$turnout16))
+df_votes16$Var1=c("Definitely voted", 
+                  "Definitely did not vote", 
+                  "Not Completely sure")
+colnames(df_votes16)[colnames(df_votes16) == "Var1"] <- "Did you vote in 2016?"
+df_votes16
+print(paste("Total number of votes in 2016 is: ", sum(df_votes16$Freq[1])))
+@
+\caption{2016 voter turnout breakout}
+\end{table}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+df_analysis=A[A$turnout18 != 4 & A$turnout18 != 5,]
+length(df_analysis$geangry)
+summary(df_analysis$geangry)
+unique(df_analysis$geangry)
+df_angry18 = as.data.frame(table(df_analysis$geangry))
+df_angry18
+@
+\caption{\textbf{geangry}}
+\end{table}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+length(df_analysis$geafraid)
+summary(df_analysis$geafraid)
+unique(df_analysis$geafraid)
+df_afraid18 = as.data.frame(table(df_analysis$geafraid))
+df_afraid18
+@
+\caption{\textbf{geafraid}}
+\end{table}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+df_analysis=df_analysis[df_analysis$geangry != -7 & df_analysis$geafraid != -7,]
+# create dataframes for 2018 and 2016 voters
+# 2018 votes dataframe
+df_voters18 = as.data.frame(table(df_analysis$turnout18))  
+df_voters18$Var1=c("Definitely voted in person on Nov. 6", "Definitely voted in person before Nov.6", "Definitely voted by mail")
+colnames(df_voters18)[colnames(df_voters18) == "Var1"] <- "Did you vote in 2018?"
+votes_18 = sum(df_voters18$Freq[1:3])
+print("Total number of 2018 voters who responded to the relevant")
+print(paste("question: ", votes_18))
+df_voters18
+
+# 2016 votes dataframe
+df_voters16 = as.data.frame(table(df_analysis$turnout16))
+df_voters16$Var1=c("Definitely voted", "Definitely did not vote", "Not completely sure")
+colnames(df_voters16)[colnames(df_voters16) == "Var1"] <- "Did you vote in 2016?"
+votes_16 = sum(df_voters16$Freq[2])
+print(paste("Total number of 2018 voters who did not vote in 2016: ", votes_16))
+df_voters16
+@
+\caption{Final dataset containing 2018 voters}
+\end{table}
+
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+library(ggplot2)
+length(df_analysis$geangry)
+summary(df_analysis$geangry)
+unique(df_analysis$geangry)
+paste("The skewness is", round(skewness(df_analysis$geangry),2))
+df_angry = as.data.frame(table(df_analysis$geangry))  
+df_angry$Var1=c("Not at all", "A little", "Somewhat", "Very", "Extremely")
+colnames(df_angry)[colnames(df_angry) == "Var1"] <- "Angry Intensity"
+df_angry
+#hist(df_analysis$geangry, breaks = 7, col="pink", border='darkgray', xlim = c(1,5), main = "Angry Histogram", plot=TRUE)
+@
+\caption{Summary statitics for \textbf{geangry}}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\scalebox{0.60}{
+<<echo=FALSE,comment=NA>>=
+# ggplot histogram
+ggplot(df_angry$geangry, aes(x=df_analysis$geangry)) + 
+geom_histogram(bins=5, colour="black", fill="pink") +
+labs(title="Angry Histogram", x="Angry Intensity", y="Count")
+@
+}
+\caption{Angry Histogram}
+\end{figure}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+summary(df_analysis$geafraid)
+unique(df_analysis$geafraid)
+paste("The skewness is", round(skewness(df_analysis$geafraid),2))
+df_afraid = as.data.frame(table(df_analysis$geafraid))  
+df_afraid$Var1=c("Not at all", "A little", "Somewhat", "Very", "Extremely")
+colnames(df_afraid)[colnames(df_afraid) == "Var1"] <- "Afraid Intensity"
+df_afraid
+#hist(df_analysis$geafraid, breaks = 6, col="lightblue", border='darkgray', xlim = c(1,5), main = "Afraid Histogram")
+@
+\caption{Summary statistics for \textbf{geafraid}}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\scalebox{0.60}{
+<<echo=FALSE,comment=NA>>=
+# ggplot histogram
+ggplot(df_afraid$geafraid, aes(x=df_analysis$geafraid)) + 
+geom_histogram(bins=5, colour="black", fill="lightblue") +
+labs(title="Afraid Histogram", x="Afraid Intensity", y="Count")
+@
+}
+\caption{Afraid Histogram}
+\end{figure}
+
+\paragraph{Based on your EDA, select an appropriate hypothesis test. (5 points)}
+Explain why your test is the most appropriate choice. List and evaluate all assumptions for your test.
+
+\paragraph{}
+The sign test is the statistical method applied to this analysis to test which emotion drove voters to the polls in 2018.  The null hypothesis of the sign test states that half of the respondents will be more angry than afraid, and the other half will be more afraid than angry. On the other hand, the alternative hypothesis indicates there is a statistical difference in the respondents' emotions.  Generally speaking, the alternative hypothesis claims there will be more respondents angry than afraid or vice-versa.  A sign test is most appropriate when there are pairs of observations (such as angry and afraid) drawn independently of other pairs. Also, since anger and fear are measured in the same units, the data are a great candidate for a paired test.  The first requirement of independently and identically distributed pairs is satisfied (please refer to the beginning of the document for assumptions about I.I.D.).  The next section will discuss the sign test's second requirement. 
+
+One could argue that using a Wilcoxon Signed-Rank test could increase the power of the test.  However, the sign test was selected because the responses are consistent with an ordinal scale, not an interval scale.  More specifically, the responses are quantified by a Likert scale.  A Likert scale usually contains five levels that allow the respondent to indicate the intensity of their feeling for a given item.  The Likert scale used in the survey has moderate intensities of magnitude; no response is extremely more unbalanced than the other.  The scale has good symmetry.  Also, the sign test is most useful when paired observations (angry-caseid1, afraid-caseid2) can be expressed as angry > afraid, angry=afraid, and angry<afraid, which the data satisfies.  As a note, non-parametric tests can be referred to as distribution-free tests because they have fewer assumptions than more strict parametric tests. 
+
+\paragraph{Conduct your test. (5 points)}
+Explain (1) the statistical significance of your result, and (2) the practical significance of your result. Make sure you relate your findings to the original research question.
+\paragraph{}
+Conducting the sign test concludes there is enough statistical significance to reject the null hypothesis. The p-value of the test is close to 0, with a confidence interval of 95\% at a probability of 0.5. The alternative hypothesis suggests that there is a statistical significance of the respondents feeling more strongly about one emotion than the other. In fact, 66\% of respondents felt more angry than afraid about the way things were going in the country. Based on the analysis, anger was the more effective driver of voter turnout in 2018. An r statistic of 0.32 suggests that there is a medium effect size portrayed by the data.
+
+\begin{figure}[H]
+<<echo=FALSE,comment=NA>>=
+df_analysis2=df_analysis[df_analysis$geangry != df_analysis$geafraid,]
+df_angry = df_analysis2$geangry
+df_afraid = df_analysis2$geafraid
+emotion_ben = factor(ifelse(df_angry > df_afraid, "more angry", "more afraid"))
+summary(emotion_ben)
+binom.test(676, 1024, p=0.5)
+r = round((676-(1024-676))/1024, 2)
+print(paste("r is:", r))
+@
+\caption{Afraid vs Angry binomial test}
+\end{figure}
+
+\subsection{Do non-Republican voters who identify closer to the Republican party than the Democratic party tend to vote across party lines?}
+
+\paragraph{Clearly argue for the relevance of this question. (10 points)}
+In words, clearly state your research question and argue why it is important for understanding the recent voting behavior. Explain it as if you were presenting to an audience that includes technical and non technical members.
+
+Explain how your variables are operationalized.  Comment on any gaps that you can identify between your operational definitions and the concepts you are trying to study.
+
+\paragraph{}
+Understanding voter behavior is an essential insight in most political campaigns nowadays. Over the years, and since the emergence of "Big Data," politicians have ramped up in-house data teams to gain any advantage possible over the opposition. An essential characteristic of a campaign revolves around where to focus effort. Through this analysis, Team Resonators will seek to understand if voters who generally do not consider themself a Republican but do consider themself being closer to the Republican party over any other party vote for Democratic candidates. If Team Resonators can conclude there is sufficient statistical significance that voters on the fence can be swayed the other direction, then political campaigns will be motivated to capitalize on this valuable information.
+
+In a recent survey, ANES 2018 Pilot Study, nearly 38\% of Americans considered themself something other than a Republican or Democrat. When asked whether they identified Republican, Democrat, or neither, more than 50\% identified closer to either Democrat or Republican. These numbers suggest that 10\% of the population may side with the Republican party but capable of voting Democrat. Team Resonators will seek to understand if focusing on this 10\% should be something of interest to political campaigns.
+
+Five variables from the ANES 2018 Pilot Study survey are taken into account to determine if statistical significance is valid. Although, two variables are most critical to the analysis, \textbf{pidlean} and \textbf{senate18p}, the other three variables, \textbf{pid1r} and \textbf{pid1d}, and \textbf{senate81t} only reveal \textbf{pidlean} and \textbf{senate18p}, respectively, to the respondent for certain responses. \textbf{pid1r} and \textbf{pid1d} ask the respondent, "Generally speaking, do you usually think of yourself as a Republican, a Democrat, an independent, or what?" The respondent answers with the following selection: (1) Republican, (2) Democrat, (3) independent, or (4) something else. There is a slight difference between \textbf{pid1r} and \textbf{pid1d}, which is used to avoid bias. The questions are randomized, based on each survey, with (1) Republican as the first selection for textbf{pid1r} and (2) Democrat as the first selection for \textbf{pid1d}.
+
+The variable \textbf{pidlean}, which is only seen by respondents who responded as independent or something else (not Republican or Democrat) to \textbf{pid1r} or \textbf{pid1d}, asks, "Do you think of yourself as closer to the Republican Party or to the Democratic Party?". The respondents have the following selections available: (1) Closer to the Republican Party, (2) Closer to the Democratic Party, or (3) Neither. Before discussing this variable's purpose, the second variable \textbf{senate18p} is introduced; but first, the setup question \textbf{senate18t} is discussed.
+
+Variable \textbf{senate18t} asks the respondents, "How about the election for U.S. Senate? Did you vote for a candidate for the United States Senate, or did you not vote for that office?" The respondent can answer: (1) Voted for a U.S. Senate candidate or (2) Did not vote for that office. If the respondent chose (1) then they are prompted with \textbf{senate18p}, which asks, "For the U.S. Senate, did you vote Democrat, Republican, or another party(or did you vote for Senate candidates from two different parties in your state's two U.S. Senate races)?" The respondent is given the following responses to choose from: (1) Democrat, (2) Republican, (3) another party, or (4) two different parties.
+
+Since \textbf{pidlean} is only seen by respondents who answered as not being Democrat or Republican, it is assumed that they have the potential of voting for either party. The respondents that replied identify closer to Republican will then undergo analysis based on variable \textbf{senate18p}. If they voted for both Senators of the Republican party, they are considered voters that can not be swayed. However, if they selected another party or two different parties in response to \textbf{senate18p}, they are considered voters capable of voting for the other party.
+
+\paragraph{Perform an exploratory data analysis (EDA) of the relevant variables. (5 points)}
+Perform an exploratory data analysis (EDA) of the relevant variables.
+
+This should include a treatment of non-response and other special codes, basic sanity checks, and a justification for any values that are removed. Use visual tools to assess the relationship among your variables and comment on any features you find.
+
+Based on your EDA, select an appropriate hypothesis test. Explain why your test is the most appropriate choice. List and evaluate all assumptions for your test.
+
+\paragraph{}
+The data exploration starts by investigating the respondents' answers to \textbf{pidlean}. The variable contains five values, and from the sanity check, it is conclusive that the data set contains all 2,500 respondents. The value -7 corresponds to respondents who did not answer the question, which is one respondent. The value -1 corresponds to respondents who identified as Republican or Democrat. The number of respondents in this category is 1,562. Respondents categorized by values -7 and -1 are removed from the analysis because the interest lies in voters who don't identify as one of the two major parties. After filtering these respondents out of the dataset, it is seen in Table xx that 241 respondents identify as closer to the Republican Party, 279 identify as closer to the Democratic Party, and 417 identify as neither. Since the analysis aims to find non-Republican voters identifying closer to the Republican party than any other party, the data set is filtered to respondents who answered as such. The remaining dataset now contains 241 respondents.
+
+Keep in mind all further analysis is about non-Republican respondents who identify as being closer to Republican than any other party. Next, the most critical variable of the hypothesis test is explored [seante18p]. The initial exploration conveys three different values. Value 1 indicates the respondent voted for both senators of the Democratic party. Value 2 indicates the respondent voted for both senators of the Republican party. Lastly, value 3 is designated for a respondent who voted for one Republican senator and one Democratic senator. A voter capable of voting for the opposition is described as not voting for both Republican senators. For this reason, voters with values 1 and 3 are combined. The variable is considered an independent Bernoulli variable. A sanity check of the data returns a total of 134 respondents. The number of voters decreased from 241 because 107 respondents identifying as closer to the Republican party did not vote in the senate race. The values are now (1) voted split or Democrat and (2)voted for two Republican senators.
+
+The mean of the variable is 1.91, which suggests that a large number of voters voted for both Republican party senators. If we assume an even split between the two groups, the mean would be 1.5. From Table xx it is seen that 122 respondents voted for both Republican senators of their respective state while only 12 did not. Figure xx displays a histogram of the variable; it has a skew of -2.87. Since [senate18p] is an independent Bernoulli random variable, an unpaired t-test is used to calculate a statistical significance. The requirements for iid (please refer to the introduction), no outliers in the data, and continuous variable (ratio) are satisfied.
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+# use this table
+# respondents who are closer to republican or democrat, or neither
+A123 = A[A$pidlean==1 | A$pidlean==2 | A$pidlean==3,]
+length(A123$pidlean)
+summary(A123$pidlean)
+unique(A123$pidlean)
+t_pidlean = as.data.frame(table(A123$pidlean))
+t_pidlean$Var1=c("Closer to the Republican Party", "Closer to the Democratic Party", "Neither")
+colnames(t_pidlean)[colnames(t_pidlean) == "Var1"] <- "Response"
+t_pidlean
+@
+\caption{Sanity checks for \textbf{pidlean}}
+\end{table}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+length(A123$senate18p)
+summary(A123$senate18p)
+unique(A123$senate18p)
+t_senate18p = as.data.frame(table(A123$senate18p))
+t_senate18p
+@
+\caption{Sanity checks for \textbf{senate18p}}
+\end{table}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+# Filter for respondents who got this question
+A123 = A123[A123$senate18p!=-1,]
+length(A123$senate18p)
+summary(A123$senate18p)
+unique(A123$senate18p)
+t_senate18p = as.data.frame(table(A123$senate18p))
+t_senate18p$Var1=c("Democrat", "Republican", "another party", "two different parties")
+colnames(t_senate18p)[colnames(t_senate18p) == "Var1"] <- "Response"
+t_senate18p
+@
+\caption{Filter for respondents who got question \textbf{senate18p}}
+\end{table}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+# Filter for respondents who got this question
+# filter for closer to republican and check senate votes
+pidleanR = A123[A123$pidlean==1,]
+length(pidleanR$senate18p)
+summary(pidleanR$senate18p)
+t_pidleanR_senate18p = as.data.frame(table(pidleanR$senate18p))
+t_pidleanR_senate18p$Var1=c("Democrat", "Republican", "another party")
+colnames(t_pidleanR_senate18p)[colnames(t_pidleanR_senate18p) == "Var1"] <- "Closer to Republican - Senate Votes"
+t_pidleanR_senate18p
+@
+\caption{Filter for closer to republican and check senate votes}
+\end{table}
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+# Use this table 
+# Use this figure
+# combine non-republican votes
+pidleanR1_senate = ifelse(pidleanR$senate18p==3, 1, pidleanR$senate18p)
+paste("There  are", length(pidleanR1_senate), "respondents in the dataset")
+summary(pidleanR1_senate)
+paste("The standard deviation is:",round(sd(pidleanR1_senate),2))
+paste("The skewness is:",skewness(pidleanR1_senate))
+t_pidleanR1_senate = as.data.frame(table(pidleanR1_senate))
+t_pidleanR1_senate$pidleanR1_senate=c("Democrat or another party", "Republican")
+colnames(t_pidleanR1_senate)[colnames(t_pidleanR1_senate) == "pidleanR1_senate"] <- "Closer to Republican - Senate Votes Consolidated"
+t_pidleanR1_senate
+df_pidleanR1_senate = as.data.frame(pidleanR1_senate)
+@
+\caption{Closer to republican senate votes consolidated}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\scalebox{0.65}{
+<<echo=FALSE,comment=NA>>=
+# histogram
+bb <- barplot(table(pidleanR1_senate),col='lightblue',border='darkgrey', 
+              main="Non-Republican Voters Identifiying Closer\n to the Republican Party", 
+              xlab="(1)-Voted Democrat or Other                     (2)-Voted Republican")
+
+@
+}
+\caption{Non-Republican voters indetification}
+\end{figure}
+
+\paragraph{Conduct your test. (2 points)}
+Explain (1) the statistical significance of your result, and (2) the practical significance of your result.
+
+\paragraph{}
+The null hypothesis of the test describes voters closer to the Republican party equally voting for Republican and Democratic senators. The alternative hypothesis proposes that voters closer to the Republican party will not vote equally between the two parties. A two-tailed analysis is applied to take into account statistical significance in either voting more Democrat or more Republican. After executing a two-tailed t-test in statistical software, a t-value of 16.58 and a p-value close to 0 is returned. In this case, a p-value of less than 0.05 rejects the null hypothesis. Based on the alternative hypothesis, voters who are not Republican but identify close to Republicans tend to vote in favor of one party. The practical significance can be derived from both the mean and the confidence interval. A mean of 1.91 conveys that most voters identifying closer to the Republican party vote Republican. When interpreting the long-run frequency there is 95\% chance that the mean of the population falls between the confidence level of 95 out of 100 tests performed. Because the confidence interval is so far shifted towards voting Republican, one can make the assumption that political effort should not be placed on converting voters on the fence of a particular party.
+
+\begin{table}[H]
+<<echo=FALSE,comment=NA>>=
+t.test(pidleanR1_senate, mu=1.5)
+@
+\caption{Two-tailed t-test for party affinity}
+\end{table}
+
+\paragraph{Conclusion. (3 points)}
+Clearly state the conclusion of your hypothesis test and how it relates to your research question.
+Finally, briefly present your conclusion in words as if you were presenting to an audience that includes technical and non technical members.
+\paragraph{}
+The test statistic in this hypothesis test rejects the null hypothesis and supports the alternative hypothesis. Practically speaking, it is concluded that voters who do not generally consider themself Republican but do identify closer to the Republican party over any other party tend to vote for the Republican party. In fact, voters identifying as closer to the Republican party voted for Republican candidates 91\% of the time. Evidence suggests that political campaigns should not spend extra effort attempting to gain votes from voters on the fence of the opposing party (at least in the case of the Republican party). The data suggests that the result from pursing Democratic votes from this type of voter may be insignificant in comparison to other endeavors.
+
+\end{document}
